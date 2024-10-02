@@ -52,6 +52,12 @@ typedef struct  {
 		FLEXSPI = 3
 	} bus_type;
 
+	enum flash_chip_type {
+		RAMTRON = 0,
+		W25 = 1,
+		W25QXXXJV = 2
+	} flash_type;
+
 	uint32_t devid;
 } px4_mft_device_t;
 

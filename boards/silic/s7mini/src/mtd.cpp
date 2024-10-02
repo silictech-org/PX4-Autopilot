@@ -34,20 +34,32 @@
 
 #include <nuttx/spi/spi.h>
 #include <px4_platform_common/px4_manifest.h>
-//                                                              KiB BS    nB
-static const px4_mft_device_t spi5 = {             // FM25V02A on FMUM native: 32K X 8, emulated as (1024 Blocks of 32)
+// w25q128jv total 256 blocks each 64KB
+static const px4_mft_device_t spi2 = {
 	.bus_type = px4_mft_device_t::SPI,
+	.flash_type = px4_mft_device_t::W25,
 	.devid    = SPIDEV_FLASH(0)
 };
 
 static const px4_mtd_entry_t fmum_fram = {
-	.device = &spi5,
-	.npart = 1,
+	.device = &spi2,
+	.npart = 3,
 	.partd = {
 		{
 			.type = MTD_PARAMETERS,
 			.path = "/fs/mtd_params",
 			.nblocks = 32
+		},
+		{
+			.type = MTD_CALDATA,
+			.path = "/fs/mtd_caldata",
+			.nblocks = 32
+		},
+		{
+			.type = MTD_WAYPOINTS,
+			.path = "/fs/mtd_waypoints",
+			.nblocks = 64
+
 		}
 	},
 };
