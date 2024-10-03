@@ -9,7 +9,7 @@ board_adc start
 bmi088 -s -b 1 -A -R 2 start
 bmi088 -s -b 1 -G -R 2 start
 
-icm42688p -R 0 -s start
+icm42688p -s -b 1 -R 2 start
 
 # internal baro
 spl06 -X -a 0x77 start
