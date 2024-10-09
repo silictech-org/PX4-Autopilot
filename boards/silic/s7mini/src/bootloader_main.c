@@ -54,6 +54,8 @@ __EXPORT void board_on_reset(int status) {}
 
 __EXPORT void stm32_boardinitialize(void)
 {
+	stm32_configgpio(GPIO_HEATER_OUTPUT);
+
 	/* configure USB interfaces */
 	stm32_usbinitialize();
 }
