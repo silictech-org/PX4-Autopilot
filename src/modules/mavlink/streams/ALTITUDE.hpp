@@ -37,6 +37,7 @@
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/hover_thrust_estimate.h>
 #include <uORB/topics/wind.h>
 
 class MavlinkStreamAltitude : public MavlinkStream
@@ -61,7 +62,7 @@ private:
 	uORB::Subscription _air_data_sub{ORB_ID(vehicle_air_data)};
 	uORB::Subscription _home_sub{ORB_ID(home_position)};
 	uORB::Subscription _local_pos_sub{ORB_ID(vehicle_local_position)};
-
+	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	bool send() override
 	{
 		mavlink_altitude_t msg{};
@@ -117,6 +118,12 @@ private:
 			}
 
 			lpos_updated = true;
+		}
+
+		hover_thrust_estimate_s hover_thrust_estimate;
+
+		if (_hover_thrust_estimate_sub.copy(&hover_thrust_estimate)) {
+			msg.bottom_clearance = hover_thrust_estimate.hover_thrust;
 		}
 
 		// local position timeout after 10 ms
