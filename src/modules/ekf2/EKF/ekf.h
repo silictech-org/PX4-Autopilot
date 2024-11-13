@@ -61,6 +61,7 @@
 
 #include "aid_sources/ZeroGyroUpdate.hpp"
 #include "aid_sources/ZeroVelocityUpdate.hpp"
+#include <systemlib/mavlink_log.h>
 
 #if defined(CONFIG_EKF2_AUX_GLOBAL_POSITION)
 # include "aux_global_position.hpp"
@@ -578,6 +579,8 @@ private:
 
 	Vector2f _accel_lpf_NE{};			///< Low pass filtered horizontal earth frame acceleration (m/sec**2)
 	float _height_rate_lpf{0.0f};
+
+	orb_advert_t _mavlink_log_pub{nullptr};
 
 	SquareMatrixState P{};	///< state covariance matrix
 

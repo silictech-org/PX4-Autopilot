@@ -38,6 +38,11 @@
 
 #include "ekf.h"
 
+
+#ifndef MODULE_NAME
+#define MODULE_NAME "ev_pos_control"
+#endif
+
 static constexpr const char *EV_AID_SRC_NAME = "EV position";
 
 
@@ -289,6 +294,8 @@ void Ekf::updateEvPosFusion(const Vector2f &measurement, const Vector2f &measure
 			// A reset did not fix the issue but all the starting checks are not passing
 			// This could be a temporary issue, stop the fusion without declaring the sensor faulty
 			ECL_WARN("stopping %s, fusion failing", EV_AID_SRC_NAME);
+
+			mavlink_log_warning(&_mavlink_log_pub,"stopping %s, fusion failing", EV_AID_SRC_NAME);
 			stopEvPosFusion();
 		}
 	}
