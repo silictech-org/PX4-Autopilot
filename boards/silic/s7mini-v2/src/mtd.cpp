@@ -46,13 +46,13 @@ static const px4_mtd_entry_t fmum_fram = {
 		{
 			.type = MTD_PARAMETERS,
 			.path = "/fs/mtd_params",
-			.nblocks = (32768 / (1 << CONFIG_RAMTRON_EMULATE_SECTOR_SHIFT))
+			.nblocks = (16384 / (1 << CONFIG_RAMTRON_EMULATE_SECTOR_SHIFT))
 		}
 	},
 };
 
 static const px4_mtd_manifest_t board_mtd_config = {
-	.nconfigs   = 2,
+	.nconfigs   = 1,
 	.entries = {
 		&fmum_fram
 	}
