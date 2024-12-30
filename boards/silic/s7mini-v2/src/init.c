@@ -231,6 +231,8 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	led_off(LED_RED);
 	led_off(LED_BLUE);
 
+	SBUS_OUTPUT_EN(true);
+
 	if (board_hardfault_init(2, true) != 0) {
 		led_on(LED_RED);
 	}
