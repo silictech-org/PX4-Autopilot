@@ -79,10 +79,10 @@ static uint32_t g_ledmap[] = {
 
 #  define xlat(p) (p)
 static uint32_t g_ledmap[] = {
-	GPIO_nLED_BLUE,                     // Indexed by LED_BLUE
-	GPIO_nLED_RED,                      // Indexed by LED_RED, LED_AMBER
-	0,                                  // Indexed by LED_SAFETY (defaulted to an input)
-	0,                                  // Indexed by LED_GREEN
+	GPIO_nLED_RED,     // Indexed by BOARD_LED_RED
+	GPIO_nLED_GREEN,   // Indexed by BOARD_LED_GREEN
+	GPIO_nLED_BLUE,    // Indexed by BOARD_LED_BLUE
+
 };
 
 #endif

@@ -78,8 +78,8 @@
 
 #define OSC_FREQ                       16
 
-#define BOARD_PIN_LED_ACTIVITY         GPIO_nLED_BLUE // BLUE
-#define BOARD_PIN_LED_BOOTLOADER       GPIO_nLED_RED // RED
+#define BOARD_PIN_LED_ACTIVITY         GPIO_nLED_O_BLUE // BLUE
+#define BOARD_PIN_LED_BOOTLOADER       GPIO_nLED_O_RED // RED
 #define BOARD_LED_ON                   0
 #define BOARD_LED_OFF                  1
 
