@@ -151,7 +151,7 @@ static int ramtron_attach(mtd_instance_s &instance)
 		SPI_SELECT(spi, instance.devid, false);
 		SPI_LOCK(spi, false);
 
-		instance.mtd_dev = w25_initialize(spi);
+		instance.mtd_dev = ramtron_initialize(spi);
 
 		if (instance.mtd_dev) {
 			/* abort on first valid result */

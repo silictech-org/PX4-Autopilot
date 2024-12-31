@@ -95,16 +95,16 @@
 	/* PA4  */  GPIO_ADC12_INP18   \
 
 /* Define Channel numbers must match above GPIO pin IN(n)*/
-#define ADC_BATTERY_VOLTAGE_CHANNEL            /* PC4 */  ADC1_CH(4)
+#define ADC_BATTERY_CURRENT_CHANNEL            /* PC4 */  ADC1_CH(4)
 #define ADC_ADC1_3V3_CHANNEL            	/* PB1 */  ADC1_CH(5)
-#define ADC_BATTERY_CURRENT_CHANNEL            /* PC5 */  ADC1_CH(8)
+#define ADC_BATTERY_VOLTAGE_CHANNEL            /* PC5 */  ADC1_CH(8)
 #define ADC_RSSI_IN_CHANNEL            		/* PA2 */  ADC1_CH(14)
 #define ADC_SCALED_V5_CHANNEL                   /* PA4 */  ADC1_CH(18)
 
 #define ADC_CHANNELS \
-	((1 << ADC_BATTERY_VOLTAGE_CHANNEL) | \
+	((1 << ADC_BATTERY_CURRENT_CHANNEL) | \
 	 (1 << ADC_ADC1_3V3_CHANNEL) | \
-	 (1 << ADC_BATTERY_CURRENT_CHANNEL) | \
+	 (1 << ADC_BATTERY_VOLTAGE_CHANNEL) | \
 	 (1 << ADC_RSSI_IN_CHANNEL) | \
 	 (1 << ADC_SCALED_V5_CHANNEL))
 
@@ -119,7 +119,7 @@
  * PWM in future
  */
 #define GPIO_HEATER_OUTPUT   /* PB9  T17CH1 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTB|GPIO_PIN9)
-#define HEATER_OUTPUT_EN(on_true)	       px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, !(on_true))
+#define HEATER_OUTPUT_EN(on_true)	       px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, (on_true))
 
 /* PWM
  */
