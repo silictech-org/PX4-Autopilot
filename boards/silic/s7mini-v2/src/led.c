@@ -79,9 +79,11 @@ static uint32_t g_ledmap[] = {
 
 #  define xlat(p) (p)
 static uint32_t g_ledmap[] = {
-	GPIO_nLED_RED,     // Indexed by BOARD_LED_RED
+	GPIO_nLED_O_BLUE,                     // Indexed by LED_BLUE
+	GPIO_nLED_O_RED,                      // Indexed by LED_RED, LED_AMBER
 	GPIO_nLED_GREEN,   // Indexed by BOARD_LED_GREEN
 	GPIO_nLED_BLUE,    // Indexed by BOARD_LED_BLUE
+	GPIO_nLED_RED,     // Indexed by BOARD_LED_RED
 
 };
 
@@ -117,12 +119,12 @@ static bool phy_get_led(int led)
 
 __EXPORT void led_on(int led)
 {
-	phy_set_led(xlat(led), true);
+	phy_set_led(xlat(led), false);
 }
 
 __EXPORT void led_off(int led)
 {
-	phy_set_led(xlat(led), false);
+	phy_set_led(xlat(led), true);
 }
 
 __EXPORT void led_toggle(int led)

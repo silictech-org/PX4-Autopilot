@@ -69,6 +69,9 @@
 
 #define SBUS_SEL        /* PC10 */ (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_50MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTC|GPIO_PIN10)
 #define SBUS_OUTPUT_EN(on_true)	       px4_arch_gpiowrite(SBUS_SEL, !(on_true))
+
+#define BOARD_RGB_LED_IO            1
+
 /*
  * ADC channels
  *

@@ -11,3 +11,5 @@ param set-default BAT1_A_PER_V 36.367515152
 param set-default BAT2_A_PER_V 36.367515152
 
 param set-default RC_INPUT_PROTO -1
+
+rgbled_io start
