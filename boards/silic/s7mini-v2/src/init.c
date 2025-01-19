@@ -232,7 +232,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	led_on(LED_GREEN); // Indicate Power.
 	led_off(LED_BLUE);
 
-	SBUS_OUTPUT_EN(true);
+	SBUS_OUTPUT_EN(false);
 
 	if (board_hardfault_init(2, true) != 0) {
 		led_on(LED_RED);
