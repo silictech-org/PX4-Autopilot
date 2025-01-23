@@ -53,6 +53,7 @@ void RcAndDataLinkChecks::checkAndReport(const Context &context, Report &reporte
 
 			events::send(events::ID("commander_rc_lost"), {events::Log::Info, events::LogInternal::Info},
 				     "Manual control lost");
+			PX4_INFO("Manual control lost");
 		}
 
 		reporter.failsafeFlags().manual_control_signal_lost = true;
@@ -64,6 +65,7 @@ void RcAndDataLinkChecks::checkAndReport(const Context &context, Report &reporte
 			float elapsed = hrt_elapsed_time(&_last_valid_manual_control_setpoint) * 1e-6f;
 			events::send<float>(events::ID("commander_rc_regained"), events::Log::Info,
 					    "Manual control regained after {1:.1} s", elapsed);
+			PX4_INFO("Manual control regained after %.2f s", (double)elapsed);
 		}
 
 		reporter.failsafeFlags().manual_control_signal_lost = false;
