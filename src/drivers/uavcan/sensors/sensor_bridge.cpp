@@ -81,6 +81,7 @@
 #if defined(CONFIG_UAVCAN_SENSOR_SAFETY_BUTTON)
 #include "safety_button.hpp"
 #endif
+#include "mmc_irlock.hpp"
 
 /*
  * IUavcanSensorBridge
@@ -242,6 +243,8 @@ void IUavcanSensorBridge::make_all(uavcan::INode &node, List<IUavcanSensorBridge
 	}
 
 #endif
+
+	list.add(new UavcanIrlockBridge(node));
 }
 
 /*
