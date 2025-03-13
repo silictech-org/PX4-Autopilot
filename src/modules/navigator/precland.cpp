@@ -111,6 +111,9 @@ PrecLand::on_activation()
 void
 PrecLand::on_active()
 {
+	static uint8_t last_state = 0xff;
+	bool info_vail = false;
+
 	// get new target measurement
 	_target_pose_updated = _target_pose_sub.update(&_target_pose);
 
@@ -127,29 +130,52 @@ PrecLand::on_active()
 		switch_to_state_done();
 	}
 
+	if ((uint8_t)_state != last_state) {
+		last_state = (uint8_t)_state;
+		info_vail = true;
+	}
+
 	switch (_state) {
 	case PrecLandState::Start:
 		run_state_start();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_Start");
+		}
 		break;
 
 	case PrecLandState::HorizontalApproach:
 		run_state_horizontal_approach();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_HorizontalApproach");
+		}
 		break;
 
 	case PrecLandState::DescendAboveTarget:
 		run_state_descend_above_target();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_DescendAboveTarget");
+		}
 		break;
 
 	case PrecLandState::FinalApproach:
 		run_state_final_approach();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_FinalApproach");
+		}
 		break;
 
 	case PrecLandState::Search:
 		run_state_search();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_Search");
+		}
 		break;
 
 	case PrecLandState::Fallback:
 		run_state_fallback();
+		if (info_vail) {
+			mavlink_log_info(&_mavlink_log_pub, "precland_Fallback");
+		}
 		break;
 
 	case PrecLandState::Done:
@@ -186,6 +212,62 @@ PrecLand::updateParams()
 void
 PrecLand::run_state_start()
 {
+	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+	auto home_position = _navigator->get_home_position();
+	static float rel_dist = 1000;
+
+	_distance_sensor_raw_sub.update(&_dist_sensor_raw);
+
+	if (hrt_absolute_time() - _dist_sensor_raw.timestamp > 1 * 1000 * 1000) {  // Sensor not online using dist_bottom
+		auto local_position = _navigator->get_local_position();
+		rel_dist = local_position->dist_bottom;
+	}
+
+	_dist_sensor_updated = _distance_sensor_sub.update(&_dist_sensor);
+
+	if (_dist_sensor_updated &&
+	    _dist_sensor.current_distance > _dist_sensor.min_distance &&
+	    _dist_sensor.current_distance < _dist_sensor.max_distance) {
+		// rel_dist = math::min(rel_dist, _dist_sensor.current_distance);
+		rel_dist = _dist_sensor.current_distance;
+
+		if (!_limit_dn_speed_enable && (hrt_absolute_time() - _dist_sensor.timestamp < 1 * 1000 * 1000)) {
+			limit_dn_speed_params(false);
+			_limit_dn_speed_enable = true;
+			_sensor_valid_time = hrt_absolute_time();
+			PX4_INFO("dist sensor valid, loiter 3s, dist %.2f", (double)rel_dist);
+		}
+	}
+
+	if (_limit_dn_speed_enable && !_sensor_valid_loiter) {
+		if (hrt_absolute_time() - _sensor_valid_time < 3 * 1000 * 1000) {
+			pos_sp_triplet->current.alt = _navigator->get_global_position()->alt;
+			pos_sp_triplet->current.lat = home_position->lat;
+			pos_sp_triplet->current.lon = home_position->lon;
+			pos_sp_triplet->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+			_navigator->set_position_setpoint_triplet_updated();	// type pos
+			return;
+
+		} else {
+			_sensor_valid_loiter = true;
+			PX4_INFO("descend to search altitude %.2f", (double)_param_pld_srch_alt.get());
+		}
+	}
+
+	if (rel_dist > _param_pld_srch_alt.get()) {
+		pos_sp_triplet->current.alt = home_position->alt + _param_pld_srch_alt.get();
+		pos_sp_triplet->current.lat = home_position->lat;
+		pos_sp_triplet->current.lon = home_position->lon;
+		pos_sp_triplet->current.type = position_setpoint_s::SETPOINT_TYPE_LAND;
+		_navigator->set_position_setpoint_triplet_updated();	// type land
+		return;
+	}
+
+	rel_dist = 1000;
+	pos_sp_triplet->current.alt = _navigator->get_global_position()->alt;
+	pos_sp_triplet->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+	_navigator->set_position_setpoint_triplet_updated();	// type pos
+
 	// check if target visible and go to horizontal approach
 	if (switch_to_state_horizontal_approach()) {
 		return;
@@ -196,7 +278,7 @@ PrecLand::run_state_start()
 		switch_to_state_fallback();
 	}
 
-	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+	// position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
 	float dist = get_distance_to_next_waypoint(pos_sp_triplet->current.lat, pos_sp_triplet->current.lon,
 			_navigator->get_global_position()->lat, _navigator->get_global_position()->lon);
 
@@ -344,6 +426,32 @@ void
 PrecLand::run_state_fallback()
 {
 	// nothing to do, will land
+	if (_param_pld_fall_mode.get() != 0) {
+		position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+		pos_sp_triplet->current.alt = _navigator->get_global_position()->alt;
+		_navigator->set_position_setpoint_triplet_updated();
+		static uint64_t time_warn = 0;
+
+		if (hrt_absolute_time() - time_warn > 2000000) {
+			time_warn = hrt_absolute_time();
+			mavlink_log_critical(&_mavlink_log_pub, "target not detected, manual control requested");
+			_publishVehicleCmdDoLoiter();
+		}
+
+		// if (_param_pld_fall_mode.get() == 2) {
+		// 	safe_point_s _safe_point{};
+		// 	_safe_point_sub.copy(&_safe_point);
+
+		// 	if (_safe_point.timestamp > 0) {
+		// 		_returnSafePoint(); // only pub orb
+
+		// 	} else {
+		// 		mavlink_log_critical(&_mavlink_log_pub, "target not detected, manual control requested");
+		// 		_publishVehicleCmdDoLoiter();
+		// 	}
+
+		// }
+	}
 }
 
 bool
@@ -576,4 +684,112 @@ void PrecLand::slewrate(float &sp_x, float &sp_y)
 
 	sp_x = sp_curr(0);
 	sp_y = sp_curr(1);
+}
+
+void PrecLand::_publishVehicleCmdDoLoiter()
+{
+	vehicle_command_s command{};
+	command.timestamp = hrt_absolute_time();
+	command.command = vehicle_command_s::VEHICLE_CMD_DO_SET_MODE;
+	command.param1 = (float)1; // base mode
+	command.param3 = (float)0; // sub mode
+	command.target_system = 1;
+	command.target_component = 1;
+	command.source_system = 1;
+	command.source_component = 1;
+	command.confirmation = false;
+	command.from_external = false;
+	command.param2 = (float)PX4_CUSTOM_MAIN_MODE_AUTO;
+	command.param3 = (float)PX4_CUSTOM_SUB_MODE_AUTO_LOITER;
+
+	// publish the vehicle command
+	_pub_vehicle_command.publish(command);
+}
+
+void PrecLand::_returnSafePoint()
+{
+	// precland_fallback_s _precland_fall_back{};
+	// _precland_fall_back.timestamp = hrt_absolute_time();
+	// _precland_fall_back.fallback_state = 1;
+	// _precland_fallback_topic.publish(_precland_fall_back);
+}
+
+
+void PrecLand::record_orin_value()
+{
+	for (int i = 0; i < _kParamNum; i++) {
+		param_t param = param_find_no_notification(_param_names[i]);
+		param_get(param, &_orin_value[i]);
+		PX4_INFO("read %s value %.2f ", _param_names[i], (double)_orin_value[i]);
+	}
+}
+
+void PrecLand::update_control_params(bool recover)
+{
+	float land_set_value[_kParamNum] = {_param_pld_jerk_auto.get(), _param_pld_acc_hor.get()};
+	float set_value[_kParamNum];
+
+	if (recover) {
+		memcpy(set_value, _orin_value, _kParamNum * sizeof(float));
+
+	} else {
+		memcpy(set_value, land_set_value, _kParamNum * sizeof(float));
+	}
+
+	for (int i = 0; i < _kParamNum; i ++) {
+		param_t param = param_find_no_notification(_param_names[i]);
+
+		if (param == PARAM_INVALID) {
+			PX4_INFO("find %s error", _param_names[i]);
+
+		} else if (!((param_type(param) == PARAM_TYPE_INT32) ||
+			     (param_type(param) == PARAM_TYPE_FLOAT))) {
+			PX4_INFO("param %s  typpe error", _param_names[i]);
+
+		} else {
+			PX4_INFO("set %s to %.2f", _param_names[i], (double)set_value[i]);
+			// According to the mavlink spec we should always acknowledge a write operation.
+			param_set(param, &set_value[i]);
+			// send_param(param);
+		}
+	}
+
+}
+
+void PrecLand::record_orin_dn_speed()
+{
+	param_t param = param_find_no_notification(_dn_param_name);
+	param_get(param, &_orin_dn_speed);
+	PX4_INFO("read %s value %.2f ", _dn_param_name, (double)_orin_dn_speed);
+}
+
+void PrecLand::limit_dn_speed_params(bool recover)
+{
+
+	float dn_speed = _param_pld_auto_dn.get();
+	float set_value = 0.0f;
+
+	if (recover) {
+		set_value = _orin_dn_speed;
+
+	} else {
+		set_value = dn_speed;
+	}
+
+	param_t param = param_find_no_notification(_dn_param_name);
+
+	if (param == PARAM_INVALID) {
+		PX4_INFO("find %s error", _dn_param_name);
+
+	} else if (!((param_type(param) == PARAM_TYPE_INT32) ||
+		     (param_type(param) == PARAM_TYPE_FLOAT))) {
+		PX4_INFO("param %s  typpe error", _dn_param_name);
+
+	} else {
+		PX4_INFO("set %s to %.2f", _dn_param_name, (double)set_value);
+		// According to the mavlink spec we should always acknowledge a write operation.
+		param_set(param, &set_value);
+		// send_param(param);
+	}
+
 }

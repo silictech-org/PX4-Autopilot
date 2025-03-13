@@ -119,3 +119,58 @@ PARAM_DEFINE_FLOAT(PLD_SRCH_TOUT, 10.0f);
  * @group Precision Land
  */
 PARAM_DEFINE_INT32(PLD_MAX_SRCH, 3);
+
+/**
+ * Jerk limit in land mode
+ *
+ * Limit the maximum jerk of the vehicle (how fast the acceleration can change).
+ * A lower value leads to smoother vehicle motions, but it also limits its
+ * agility.
+ *
+ * @unit m/s^3
+ * @min 0.0
+ * @max 80.0
+ * @increment 1
+ * @decimal 1
+ * @group Precision Land
+ */
+PARAM_DEFINE_FLOAT(PLD_JERK_AUTO, 1.0f);
+
+/**
+ * Acceleration for land
+ *
+ *
+ * @unit m/s^2
+ * @min 0.0
+ * @max 15.0
+ * @increment 1
+ * @decimal 2
+ * @group Precision Land
+ */
+PARAM_DEFINE_FLOAT(PLD_ACC_HOR, 1.0f);
+
+/**
+ * Action after exceeding the maximum number of searches
+ *
+ * Action after exceeding the maximum number of searches, 0 landing, 1 loiter
+ *
+ * @min 0
+ * @max 100
+ * @group Precision Land
+ */
+PARAM_DEFINE_INT32(PLD_FALL_MODE, 0);
+
+/**
+ * Preacland descent velocity
+ *
+ * Descent velocity in auto modes.
+ * For manual modes and offboard, see MPC_Z_VEL_MAX_DN
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 2.0
+ * @increment 0.1
+ * @decimal 1
+ * @group Precision Land
+ */
+PARAM_DEFINE_FLOAT(PLD_AUTO_DN, 0.6f);

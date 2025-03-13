@@ -73,6 +73,7 @@ set(msg_files
 	DebugVect.msg
 	DifferentialPressure.msg
 	DistanceSensor.msg
+	DistanceSensorRaw.msg
 	DistanceSensorModeChangeRequest.msg
 	Ekf2Timestamps.msg
 	EscReport.msg

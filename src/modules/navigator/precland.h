@@ -43,11 +43,18 @@
 #include <matrix/math.hpp>
 #include <lib/geo/geo.h>
 #include <px4_platform_common/module_params.h>
+#include <uORB/topics/distance_sensor_raw.h>
+#include <uORB/topics/distance_sensor.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/landing_target_pose.h>
 
+#include <uORB/topics/vehicle_command.h>
+#include <commander/px4_custom_mode.h>
+
 #include "navigator_mode.h"
 #include "mission_block.h"
+
+#include <systemlib/mavlink_log.h>
 
 enum class PrecLandState {
 	Start, // Starting state
@@ -83,7 +90,10 @@ public:
 private:
 
 	void updateParams() override;
-
+	void update_control_params(bool recover);
+	void record_orin_value();
+	void record_orin_dn_speed();
+	void limit_dn_speed_params(bool recover);
 	// run the control loop for each state
 	void run_state_start();
 	void run_state_horizontal_approach();
@@ -108,10 +118,22 @@ private:
 	void slewrate(float &sp_x, float &sp_y);
 
 	landing_target_pose_s _target_pose{}; /**< precision landing target position */
+	const static int _kParamNum = 2;
+	const char *_param_names[_kParamNum] = {"MPC_JERK_AUTO", "MPC_ACC_HOR"};
+	float _orin_value[_kParamNum];
+
+	const char *_dn_param_name = "MPC_Z_V_AUTO_DN";
+	float _orin_dn_speed{0.0f};
 
 	uORB::Subscription _target_pose_sub{ORB_ID(landing_target_pose)};
+	uORB::Subscription _distance_sensor_sub{ORB_ID(distance_sensor)};
+	uORB::Subscription _distance_sensor_raw_sub{ORB_ID(distance_sensor_raw)};
+
 	bool _target_pose_valid{false}; /**< whether we have received a landing target position message */
 	bool _target_pose_updated{false}; /**< wether the landing target position message is updated */
+	bool _dist_sensor_updated{false};
+	bool _limit_dn_speed_enable{false};
+	bool _sensor_valid_loiter{false};
 
 	MapProjection _map_ref{}; /**< class for local/global projections */
 
@@ -119,6 +141,7 @@ private:
 	uint64_t _last_slewrate_time{0}; /**< time when we last limited setpoint changes */
 	uint64_t _target_acquired_time{0}; /**< time when we first saw the landing target during search */
 	uint64_t _point_reached_time{0}; /**< time when we reached a setpoint */
+	uint64_t _sensor_valid_time{0};
 
 	int _search_cnt{0}; /**< counter of how many times we had to search for the landing target */
 	float _approach_alt{0.0f}; /**< altitude at which to stay during horizontal approach */
@@ -138,7 +161,11 @@ private:
 		(ParamFloat<px4::params::PLD_FAPPR_ALT>) _param_pld_fappr_alt,
 		(ParamFloat<px4::params::PLD_SRCH_ALT>) _param_pld_srch_alt,
 		(ParamFloat<px4::params::PLD_SRCH_TOUT>) _param_pld_srch_tout,
-		(ParamInt<px4::params::PLD_MAX_SRCH>) _param_pld_max_srch
+		(ParamInt<px4::params::PLD_MAX_SRCH>) _param_pld_max_srch,
+		(ParamFloat<px4::params::PLD_JERK_AUTO>) _param_pld_jerk_auto,
+		(ParamFloat<px4::params::PLD_ACC_HOR>) _param_pld_acc_hor,
+		(ParamInt<px4::params::PLD_FALL_MODE>) _param_pld_fall_mode,
+		(ParamFloat<px4::params::PLD_AUTO_DN>)  _param_pld_auto_dn
 	)
 
 	// non-navigator parameters
@@ -147,4 +174,13 @@ private:
 	float	_param_acceleration_hor{0.0f};
 	float	_param_xy_vel_cruise{0.0f};
 
+	orb_advert_t _mavlink_log_pub{nullptr}; /**< Mavlink log uORB handle */
+
+	distance_sensor_s _dist_sensor{0};
+	distance_sensor_raw_s _dist_sensor_raw{0};
+
+	uORB::Publication<vehicle_command_s> _pub_vehicle_command{ORB_ID(vehicle_command)};	/**< vehicle command do publication */
+
+	void _publishVehicleCmdDoLoiter();
+	void _returnSafePoint();
 };
