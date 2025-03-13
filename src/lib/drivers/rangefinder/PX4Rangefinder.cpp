@@ -81,5 +81,32 @@ void PX4Rangefinder::update(const hrt_abstime &timestamp_sample, const float dis
 		}
 	}
 
+	single_buffer_.push(report.current_distance);
+
+	// http://jira.mmcuav.com:8001/browse/CPCS-310
+	if (!data_valid_ && (report.current_distance <= report.min_distance
+			     || report.current_distance >= report.max_distance)) {
+		single_buffer_.reset();
+	}
+
+	if (single_buffer_.getValid()) {
+		if (!data_valid_) {
+			PX4_INFO("single buffer valid");
+		}
+
+		data_valid_ = true;
+	}
+
+	if (data_valid_) {
+		_distance_sensor_pub.update();
+	}
+}
+
+void PX4Rangefinder::force_push(const hrt_abstime &timestamp_sample, const float distance)
+{
+	distance_sensor_s &report = _distance_sensor_pub.get();
+	report.timestamp = timestamp_sample;
+	report.current_distance = distance;
+
 	_distance_sensor_pub.update();
 }

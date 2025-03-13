@@ -47,7 +47,7 @@
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/landing_target_pose.h>
-
+#include <uORB/topics/precland.h>
 #include <uORB/topics/vehicle_command.h>
 #include <commander/px4_custom_mode.h>
 
@@ -176,9 +176,10 @@ private:
 
 	orb_advert_t _mavlink_log_pub{nullptr}; /**< Mavlink log uORB handle */
 
+	precland_s _precland_buf{0};
 	distance_sensor_s _dist_sensor{0};
 	distance_sensor_raw_s _dist_sensor_raw{0};
-
+	uORB::Publication<precland_s> _precland_topic{ORB_ID(precland)};
 	uORB::Publication<vehicle_command_s> _pub_vehicle_command{ORB_ID(vehicle_command)};	/**< vehicle command do publication */
 
 	void _publishVehicleCmdDoLoiter();

@@ -52,6 +52,8 @@ int UavcanRangefinderBridge::init()
 	// Initialize min/max range from params
 	param_get(param_find("UAVCAN_RNG_MIN"), &_range_min_m);
 	param_get(param_find("UAVCAN_RNG_MAX"), &_range_max_m);
+	param_get(param_find("PLD_SRCH_ALT"), &_pld_srch_alt);
+	param_get(param_find("MPC_Z_V_AUTO_DN"), &_auto_dn_max);
 
 	int res = _sub_range_data.start(RangeCbBinder(this, &UavcanRangefinderBridge::range_sub_cb));
 
@@ -78,6 +80,19 @@ void UavcanRangefinderBridge::range_sub_cb(const
 
 	if (rangefinder == nullptr) {
 		return;
+	}
+
+	if (sensor_hz == 0 && _inited) {
+		sensor_hz = uint8_t(1 * 1000 * 1000 / (hrt_absolute_time() - _distance_raw.timestamp)); // Sensor frequency
+
+		if (sensor_hz > 50) {
+			sensor_hz = 50;
+		}
+
+		// PX4_INFO("distance sensor frequency %d Hz", sensor_hz);
+		rangefinder->single_buffer_.setSensorFreq(sensor_hz);
+		rangefinder->single_buffer_.setSrchAlt(_pld_srch_alt);
+		rangefinder->single_buffer_.setDownSpeed(_auto_dn_max);
 	}
 
 	if (!_inited) {
@@ -108,13 +123,46 @@ void UavcanRangefinderBridge::range_sub_cb(const
 		_inited = true;
 	}
 
-	int8_t quality = -1;
+	_distance_raw.timestamp = hrt_absolute_time();
+	_distance_raw.device_id = msg.getSrcNodeID().get();
+	_distance_raw.min_distance = _range_min_m;
+	_distance_raw.max_distance = _range_max_m;
+	_distance_raw.current_distance = msg.range;
+	_distance_raw.type = msg.sensor_type;
+	_distance_raw.sensor_hz = sensor_hz;
 
-	if (msg.reading_type == uavcan::equipment::range_sensor::Measurement::READING_TYPE_VALID_RANGE) {
-		quality = 100;
+	_precland_sub.update(&_precland);
+	_position_setpoint_triplet_sub.update(&_triplet);
+
+	if (hrt_absolute_time() - _precland.timestamp > 2000000) {
+		if (_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
+			if (msg.range < 10.0f && msg.range > 0.1f) {
+				rangefinder->force_push(hrt_absolute_time(), msg.range);
+			}
+		}
+
+		rangefinder->data_valid_ = false;
+		rangefinder->single_buffer_.reset();
+		_distance_sensor_raw.publish(_distance_raw);
+		return;
 	}
 
-	rangefinder->update(hrt_absolute_time(), msg.range, quality);
+	// int8_t quality = -1;
+
+	// if (msg.reading_type == uavcan::equipment::range_sensor::Measurement::READING_TYPE_VALID_RANGE) {
+	// 	quality = 100;
+	// }
+
+	rangefinder->update(hrt_absolute_time(), msg.range);
+
+	_distance_raw.max_index = rangefinder->single_buffer_.max_index;
+	_distance_raw.min_index = rangefinder->single_buffer_.min_index;
+	_distance_raw.max_value = rangefinder->single_buffer_.max_value;
+	_distance_raw.min_value = rangefinder->single_buffer_.min_value;
+	_distance_raw.dn_speed_max = rangefinder->single_buffer_.dn_speed_max;
+
+	_distance_sensor_raw.publish(_distance_raw);
+	rangefinder->single_buffer_.resetPeak();
 }
 
 int UavcanRangefinderBridge::init_driver(uavcan_bridge::Channel *channel)

@@ -135,6 +135,13 @@ PrecLand::on_active()
 		info_vail = true;
 	}
 
+	_precland_buf.timestamp = hrt_absolute_time();
+	_precland_buf.target_pose_valid = _target_pose_valid;
+	_precland_buf.abs_pos_valid = _target_pose.abs_pos_valid;
+	_precland_buf.precland_state = (uint8_t)_state;
+
+	_precland_topic.publish(_precland_buf);
+
 	switch (_state) {
 	case PrecLandState::Start:
 		run_state_start();

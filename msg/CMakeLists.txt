@@ -177,6 +177,7 @@ set(msg_files
 	PpsCapture.msg
 	PwmInput.msg
 	Px4ioStatus.msg
+	Precland.msg
 	QshellReq.msg
 	QshellRetval.msg
 	RadioStatus.msg

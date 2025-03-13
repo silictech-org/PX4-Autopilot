@@ -39,7 +39,11 @@
 
 #include "sensor_bridge.hpp"
 #include <uORB/topics/distance_sensor.h>
+#include <uORB/topics/distance_sensor_raw.h>
 #include <drivers/rangefinder/PX4Rangefinder.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/precland.h>
+#include <uORB/topics/position_setpoint_triplet.h>
 
 #include <uavcan/equipment/range_sensor/Measurement.hpp>
 
@@ -66,9 +70,19 @@ private:
 		RangeCbBinder;
 
 	uavcan::Subscriber<uavcan::equipment::range_sensor::Measurement, RangeCbBinder> _sub_range_data;
+	uORB::Publication<distance_sensor_raw_s> _distance_sensor_raw{ORB_ID(distance_sensor_raw)};
+	uORB::Subscription _precland_sub{ORB_ID(precland)};
+	uORB::Subscription _position_setpoint_triplet_sub{ORB_ID(position_setpoint_triplet)};
+
+	distance_sensor_raw_s _distance_raw{};
+	precland_s _precland{};
+	position_setpoint_triplet_s _triplet{};
 
 	float _range_min_m{0.0f};
 	float _range_max_m{0.0f};
+	float _pld_srch_alt{0.0f};
+	float _auto_dn_max{0.0f};
+	uint8_t sensor_hz{0};
 
 	bool _inited{false};
 
