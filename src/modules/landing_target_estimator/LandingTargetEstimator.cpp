@@ -63,6 +63,11 @@ LandingTargetEstimator::LandingTargetEstimator()
 	_paramHandle.offset_x = param_find("LTEST_SENS_POS_X");
 	_paramHandle.offset_y = param_find("LTEST_SENS_POS_Y");
 	_paramHandle.offset_z = param_find("LTEST_SENS_POS_Z");
+	_paramHandle.mask_dist_z = param_find("LTEST_MASK_Z");
+	_paramHandle.min_dist_z = param_find("LTEST_MINI_Z");
+	_paramHandle.rtl_pld_md = param_find("RTL_PLD_MD");
+	_paramHandle.scale_yaw = param_find("LTEST_SCALE_YAW");
+	_paramHandle.d_zone = param_find("LTEST_YAW_D_ZONE");
 	_check_params(true);
 }
 
@@ -210,51 +215,79 @@ void LandingTargetEstimator::_update_topics()
 	_vehicleAttitude_valid = _attitudeSub.update(&_vehicleAttitude);
 	_vehicle_acceleration_valid = _vehicle_acceleration_sub.update(&_vehicle_acceleration);
 
+	static uint64_t irlock_time_out = 0;
 
 	if (_irlockReportSub.update(&_irlockReport)) { //
-		_new_irlockReport = true;
+		irlock_time_out = hrt_absolute_time();
 
-		if (!_vehicleAttitude_valid || !_vehicleLocalPosition_valid || !_vehicleLocalPosition.dist_bottom_valid) {
-			// don't have the data needed for an update
-			return;
+		if (_irlockReport.signature != 0) {	// openmv heart
+			_new_irlockReport = true;
+
+			if (!_vehicleAttitude_valid || !_vehicleLocalPosition_valid /*|| !_vehicleLocalPosition.dist_bottom_valid*/) {
+				// don't have the data needed for an update
+				return;
+			}
+
+			if (!PX4_ISFINITE(_irlockReport.pos_y) || !PX4_ISFINITE(_irlockReport.pos_x)) {
+				return;
+			}
+
+			matrix::Vector<float, 3> sensor_ray; // ray pointing towards target in body frame
+			sensor_ray(0) = _irlockReport.pos_x * _params.scale_x; // forward
+			sensor_ray(1) = _irlockReport.pos_y * _params.scale_y; // right
+			sensor_ray(2) = 1.0f;
+
+			// rotate unit ray according to sensor orientation
+			_S_att = get_rot_matrix(_params.sensor_yaw);
+			sensor_ray = _S_att * sensor_ray;
+
+			// rotate the unit ray into the navigation frame
+			matrix::Quaternion<float> q_att(&_vehicleAttitude.q[0]);
+			_R_att = matrix::Dcm<float>(q_att);
+			sensor_ray = _R_att * sensor_ray;
+
+			if (fabsf(sensor_ray(2)) < 1e-6f) {
+				// z component of measurement unsafe, don't use this measurement
+				return;
+			}
+
+			_dist_z = _vehicleLocalPosition.dist_bottom - _params.offset_z;
+
+			if (_dist_z > 10.0f) {
+				_dist_z = _params.mask_dist_z;
+			}
+
+			float _dist_z_ray = _dist_z;
+
+			if (_dist_z_ray < _params.min_dist_z) {
+				_dist_z_ray = _params.min_dist_z;
+			}
+
+			// scale the ray s.t. the z component has length of _uncertainty_scale
+			_target_position_report.timestamp = _irlockReport.timestamp;
+			_target_position_report.rel_pos_x = sensor_ray(0) / sensor_ray(2) * _dist_z_ray;
+			_target_position_report.rel_pos_y = sensor_ray(1) / sensor_ray(2) * _dist_z_ray;
+			_target_position_report.rel_pos_z = _dist_z;
+
+			// Adjust relative position according to sensor offset
+			_target_position_report.rel_pos_x += _params.offset_x;
+			_target_position_report.rel_pos_y += _params.offset_y;
+
+			// if (_params.scale_yaw > 0.001f) {
+			// 	if (fabsf(_irlockReport.size_x) > _params.d_zone * M_DEG_TO_RAD_F) {
+			// 		_target_position_report.rel_pos_yaw = matrix::wrap_pi(_vehicleAttitude.yaw_body + matrix::wrap_pi(
+			// 				_irlockReport.size_x * _params.scale_yaw * M_DEG_TO_RAD_F));
+			// 		// PX4_INFO("_apiltag_yaw%.2f, curr = %.2f, sp = %.2f", (double)_apiltag_yaw, (double)(_vehicleAttitude.yaw_body * M_RAD_TO_DEG_F), (double)(_target_position_report.rel_pos_yaw * M_RAD_TO_DEG_F));
+			// 	}
+			// }
+
+			_new_irlockReport = true;
 		}
+	}
 
-		if (!PX4_ISFINITE(_irlockReport.pos_y) || !PX4_ISFINITE(_irlockReport.pos_x)) {
-			return;
-		}
-
-		matrix::Vector<float, 3> sensor_ray; // ray pointing towards target in body frame
-		sensor_ray(0) = _irlockReport.pos_x * _params.scale_x; // forward
-		sensor_ray(1) = _irlockReport.pos_y * _params.scale_y; // right
-		sensor_ray(2) = 1.0f;
-
-		// rotate unit ray according to sensor orientation
-		_S_att = get_rot_matrix(_params.sensor_yaw);
-		sensor_ray = _S_att * sensor_ray;
-
-		// rotate the unit ray into the navigation frame
-		matrix::Quaternion<float> q_att(&_vehicleAttitude.q[0]);
-		_R_att = matrix::Dcm<float>(q_att);
-		sensor_ray = _R_att * sensor_ray;
-
-		if (fabsf(sensor_ray(2)) < 1e-6f) {
-			// z component of measurement unsafe, don't use this measurement
-			return;
-		}
-
-		_dist_z = _vehicleLocalPosition.dist_bottom - _params.offset_z;
-
-		// scale the ray s.t. the z component has length of _uncertainty_scale
-		_target_position_report.timestamp = _irlockReport.timestamp;
-		_target_position_report.rel_pos_x = sensor_ray(0) / sensor_ray(2) * _dist_z;
-		_target_position_report.rel_pos_y = sensor_ray(1) / sensor_ray(2) * _dist_z;
-		_target_position_report.rel_pos_z = _dist_z;
-
-		// Adjust relative position according to sensor offset
-		_target_position_report.rel_pos_x += _params.offset_x;
-		_target_position_report.rel_pos_y += _params.offset_y;
-
-		_new_irlockReport = true;
+	if ((hrt_absolute_time() - irlock_time_out > 5 * 1000 * 1000) && (_params.rtl_pld_md == 2)) {
+		mavlink_log_warning(&_mavlink_log_pub, "precland sensor offline");
+		irlock_time_out = hrt_absolute_time();
 	}
 }
 
@@ -279,6 +312,13 @@ void LandingTargetEstimator::_update_params()
 	param_get(_paramHandle.offset_x, &_params.offset_x);
 	param_get(_paramHandle.offset_y, &_params.offset_y);
 	param_get(_paramHandle.offset_z, &_params.offset_z);
+
+	param_get(_paramHandle.mask_dist_z, &_params.mask_dist_z);
+	param_get(_paramHandle.min_dist_z, &_params.min_dist_z);
+
+	param_get(_paramHandle.rtl_pld_md, &_params.rtl_pld_md);
+	param_get(_paramHandle.scale_yaw, &_params.scale_yaw);
+	param_get(_paramHandle.d_zone, &_params.d_zone);
 }
 
 

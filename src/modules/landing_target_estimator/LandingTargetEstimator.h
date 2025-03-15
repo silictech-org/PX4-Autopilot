@@ -60,6 +60,7 @@
 #include <matrix/Matrix.hpp>
 #include <lib/conversion/rotation.h>
 #include "KalmanFilter.h"
+#include <systemlib/mavlink_log.h>
 
 using namespace time_literals;
 
@@ -123,6 +124,11 @@ private:
 		param_t offset_y;
 		param_t offset_z;
 		param_t sensor_yaw;
+		param_t mask_dist_z;
+		param_t min_dist_z;
+		param_t rtl_pld_md;
+		param_t scale_yaw;
+		param_t d_zone;
 	} _paramHandle;
 
 	struct {
@@ -137,6 +143,11 @@ private:
 		float offset_y;
 		float offset_z;
 		enum Rotation sensor_yaw;
+		float mask_dist_z;
+		float min_dist_z;
+		int32_t rtl_pld_md;
+		float scale_yaw;
+		float d_zone;
 	} _params;
 
 	struct {
@@ -144,6 +155,7 @@ private:
 		float rel_pos_x;
 		float rel_pos_y;
 		float rel_pos_z;
+		float rel_pos_yaw;
 	} _target_position_report;
 
 	uORB::Subscription _vehicleLocalPositionSub{ORB_ID(vehicle_local_position)};
@@ -178,5 +190,6 @@ private:
 	void _check_params(const bool force);
 
 	void _update_state();
+	orb_advert_t _mavlink_log_pub{nullptr}; /**< Mavlink log uORB handle */
 };
 } // namespace landing_target_estimator

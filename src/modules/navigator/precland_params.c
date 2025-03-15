@@ -134,7 +134,7 @@ PARAM_DEFINE_INT32(PLD_MAX_SRCH, 3);
  * @decimal 1
  * @group Precision Land
  */
-PARAM_DEFINE_FLOAT(PLD_JERK_AUTO, 1.0f);
+PARAM_DEFINE_FLOAT(PLD_JERK_AUTO, 4.0f);
 
 /**
  * Acceleration for land
@@ -147,7 +147,7 @@ PARAM_DEFINE_FLOAT(PLD_JERK_AUTO, 1.0f);
  * @decimal 2
  * @group Precision Land
  */
-PARAM_DEFINE_FLOAT(PLD_ACC_HOR, 1.0f);
+PARAM_DEFINE_FLOAT(PLD_ACC_HOR, 3.0f);
 
 /**
  * Action after exceeding the maximum number of searches

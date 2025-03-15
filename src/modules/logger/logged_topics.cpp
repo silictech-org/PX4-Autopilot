@@ -146,6 +146,10 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_status");
 	add_optional_topic("vtol_vehicle_status", 200);
 	add_topic("wind", 1000);
+	add_topic("irlock_report", 200);
+	add_topic("landing_target_pose", 200);
+	add_topic("precland", 200);
+	add_topic("distance_sensor_raw");
 
 	// multi topics
 	add_optional_topic_multi("actuator_outputs", 100, 3);

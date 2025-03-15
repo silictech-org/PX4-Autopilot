@@ -184,6 +184,17 @@ bool FlightTaskAuto::update()
 		smoothed_setpoints
 	);
 
+	if (_param_rtl_pld_mode.get() > 0 && (_type == WaypointType::position || _type == WaypointType::loiter)) { //precland srch & start
+		const float z_dir = sign(smoothed_setpoints.velocity(2));
+
+		if (z_dir > 0.1f) {
+		const float vertical_speed = math::interpolate(_dist_to_ground,
+				_param_mpc_land_alt2.get(), _param_mpc_land_alt1.get(),
+				_param_mpc_land_speed.get(), _param_mpc_z_vel_max_dn.get());
+		smoothed_setpoints.velocity(2) = math::min(vertical_speed, smoothed_setpoints.velocity(2));
+		}
+	}
+
 	_jerk_setpoint = smoothed_setpoints.jerk;
 	_acceleration_setpoint = smoothed_setpoints.acceleration;
 	_velocity_setpoint = smoothed_setpoints.velocity;

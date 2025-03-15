@@ -119,7 +119,7 @@ PARAM_DEFINE_FLOAT(LTEST_VEL_UNC_IN, 0.1f);
  *
  * @group Landing Target Estimator
  */
-PARAM_DEFINE_FLOAT(LTEST_SCALE_X, 1.0f);
+PARAM_DEFINE_FLOAT(LTEST_SCALE_X, 0.4f);
 
 /**
  * Scale factor for sensor measurements in sensor y axis
@@ -131,7 +131,7 @@ PARAM_DEFINE_FLOAT(LTEST_SCALE_X, 1.0f);
  *
  * @group Landing Target Estimator
  */
-PARAM_DEFINE_FLOAT(LTEST_SCALE_Y, 1.0f);
+PARAM_DEFINE_FLOAT(LTEST_SCALE_Y, 0.4f);
 
 
 /**
@@ -187,3 +187,49 @@ PARAM_DEFINE_FLOAT(LTEST_SENS_POS_Y, 0.0f);
  *
  */
 PARAM_DEFINE_FLOAT(LTEST_SENS_POS_Z, 0.0f);
+
+/**
+ * MASK dist_Z
+ *
+ * @reboot_required true
+ * @unit m
+ * @decimal 3
+ * @group Landing Target Estimator
+ *
+ */
+PARAM_DEFINE_FLOAT(LTEST_MASK_Z, 10.0f);
+
+/**
+ * MASK mini dist_Z
+ *
+ * @reboot_required true
+ * @unit m
+ * @decimal 3
+ * @group Landing Target Estimator
+ *
+ */
+PARAM_DEFINE_FLOAT(LTEST_MINI_Z, 1.0f);
+
+/**
+ * Scale factor for sensor measurements in sensor yaw axis
+ *
+ * Landing target yaw measurements are scaled by this factor before being used
+ *
+ * @min -1
+ * @decimal 3
+ *
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_SCALE_YAW, 0.0f);
+
+/**
+ * Allowable Error in Yaw Direction
+ *
+ * Allowable Error in Yaw Direction
+ *
+ * @min -1
+ * @decimal 3
+ *
+ * @group Landing target Estimator
+ */
+PARAM_DEFINE_FLOAT(LTEST_YAW_D_ZONE, 2.0f);

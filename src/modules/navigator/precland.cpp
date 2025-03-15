@@ -102,7 +102,8 @@ PrecLand::on_activation()
 	_sp_pev = matrix::Vector2f(0, 0);
 	_sp_pev_prev = matrix::Vector2f(0, 0);
 	_last_slewrate_time = 0;
-
+	record_orin_value();
+	record_orin_dn_speed();
 	switch_to_state_start();
 
 	_is_activated = true;
@@ -200,6 +201,10 @@ void
 PrecLand::on_inactivation()
 {
 	_is_activated = false;
+	_limit_dn_speed_enable = false;
+	_sensor_valid_loiter = false;
+	update_control_params(true);
+	limit_dn_speed_params(true);
 }
 
 void
@@ -527,10 +532,11 @@ bool
 PrecLand::switch_to_state_search()
 {
 	PX4_INFO("Climbing to search altitude.");
-	vehicle_local_position_s *vehicle_local_position = _navigator->get_local_position();
+	// vehicle_local_position_s *vehicle_local_position = _navigator->get_local_position();
 
 	position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
-	pos_sp_triplet->current.alt = vehicle_local_position->ref_alt + _param_pld_srch_alt.get();
+	// pos_sp_triplet->current.alt = vehicle_local_position->ref_alt + _param_pld_srch_alt.get();
+	pos_sp_triplet->current.alt = _navigator->get_global_position()->alt;
 	pos_sp_triplet->current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
 	_navigator->set_position_setpoint_triplet_updated();
 
@@ -578,7 +584,7 @@ bool PrecLand::check_state_conditions(PrecLandState state)
 	case PrecLandState::Start:
 		return _search_cnt <= _param_pld_max_srch.get();
 
-	case PrecLandState::HorizontalApproach:
+	case PrecLandState::HorizontalApproach: {
 
 		// if we're already in this state, only want to make it invalid if we reached the target but can't see it anymore
 		if (_state == PrecLandState::HorizontalApproach) {
@@ -593,9 +599,15 @@ bool PrecLand::check_state_conditions(PrecLandState state)
 				return true;
 			}
 		}
+		bool ret = _target_pose_updated && _target_pose_valid && _target_pose.abs_pos_valid;
+
+		if (ret) {
+			update_control_params(false);
+		}
 
 		// If we're trying to switch to this state, the target needs to be visible
-		return _target_pose_updated && _target_pose_valid && _target_pose.abs_pos_valid;
+		return ret;
+	}
 
 	case PrecLandState::DescendAboveTarget:
 
