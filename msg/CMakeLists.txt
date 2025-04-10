@@ -152,6 +152,8 @@ set(msg_files
 	NormalizedUnsignedSetpoint.msg
 	NpfgStatus.msg
 	ObstacleDistance.msg
+	ObstacleTrigger.msg
+	MmcObstacle.msg
 	OffboardControlMode.msg
 	OnboardComputerStatus.msg
 	OpenDroneIdArmStatus.msg

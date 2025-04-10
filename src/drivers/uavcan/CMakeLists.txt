@@ -182,6 +182,7 @@ px4_add_module(
 		sensors/hygrometer.cpp
 		sensors/safety_button.cpp
 		sensors/mmc_irlock.cpp
+		sensors/radar.cpp
 	MODULE_CONFIG
 		module.yaml
 	DEPENDS

@@ -82,6 +82,7 @@
 #include "safety_button.hpp"
 #endif
 #include "mmc_irlock.hpp"
+#include "radar.hpp"
 
 /*
  * IUavcanSensorBridge
