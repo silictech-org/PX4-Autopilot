@@ -84,3 +84,24 @@ PARAM_DEFINE_FLOAT(CP_GUIDE_ANG, 30.f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_INT32(CP_GO_NO_DATA, 0);
+
+/**
+ * Out of range gives a false distance
+ *
+ * Only used in Position mode.
+ *
+ * @boolean
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(CP_MAX_DIST, 50.f);
+
+/**
+ * LIDAR sensor offline, auto loiter
+ *
+ * Used in Position and task mode. Collision avoidance is disabled by setting this parameter to a negative value
+ *
+ * @min 0
+ * @max 1
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_INT32(CP_FAIL_LOITER, 0);

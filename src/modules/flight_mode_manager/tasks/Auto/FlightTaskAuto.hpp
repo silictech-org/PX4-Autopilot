@@ -60,6 +60,8 @@
 #include <lib/avoidance/ObstacleAvoidance.hpp>
 #endif
 
+#include <lib/collision_prevention/CollisionPrevention.hpp>
+
 /**
  * This enum has to agree with position_setpoint_s type definition
  * The only reason for not using the struct position_setpoint is because
@@ -160,6 +162,8 @@ protected:
 	bool _is_emergency_braking_active{false};
 	bool _want_takeoff{false};
 
+	CollisionPrevention _collision_prevention{this};
+
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTask,
 					(ParamFloat<px4::params::MPC_XY_CRUISE>) _param_mpc_xy_cruise,
 					(ParamFloat<px4::params::NAV_MC_ALT_RAD>)
@@ -189,7 +193,9 @@ protected:
 					(ParamFloat<px4::params::MPC_TKO_SPEED>) _param_mpc_tko_speed,
 					(ParamInt<px4::params::RTL_PLD_MD>) _param_rtl_pld_mode,
 					(ParamFloat<px4::params::MPC_TKO_RAMP_T>)
-					_param_mpc_tko_ramp_t // time constant for smooth takeoff ramp
+					_param_mpc_tko_ramp_t, // time constant for smooth takeoff ramp
+					(ParamFloat<px4::params::CP_DIST>)_param_cp_dist, /**< collision prevention keep minimum distance */
+					(ParamFloat<px4::params::CP_HGT_DIST_EN>)_param_cp_hgt_dist_en
 				       );
 
 private:
@@ -215,6 +221,8 @@ private:
 	WeatherVane _weathervane{this}; /**< weathervane library, used to implement a yaw control law that turns the vehicle nose into the wind */
 
 	matrix::Vector3f _initial_land_position;
+
+	matrix::Vector3f vel_sp_xyz;
 
 	void _limitYawRate(); /**< Limits the rate of change of the yaw setpoint. */
 	bool _evaluateTriplets(); /**< Checks and sets triplets. */

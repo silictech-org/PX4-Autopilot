@@ -78,3 +78,43 @@ PARAM_DEFINE_FLOAT(MPC_XY_VEL_ALL, -10.f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MPC_Z_VEL_ALL, -3.f);
+
+/**
+ * Maximum horizontal velocity setpoint for obstacle controlled mode
+ *
+ * If velocity setpoint larger than MPC_XY_VEL_MAX is set, then
+ * the setpoint will be capped to MPC_XY_VEL_MAX
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 20.0
+ * @increment 1
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(MPC_VEL_OB, 7.5f);
+
+/**
+ * Obstacle avoidance height enalbe
+ *
+ * If velocity setpoint larger than CP_HGT_DIST_EN is set, then
+ * the setpoint will be capped to CP_HGT_DIST_EN
+ *
+ * @unit m
+ * @min 0.0
+ * @max 50.0
+ * @increment 1
+ * @decimal 2
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(CP_HGT_DIST_EN, 0.0f);
+
+/**
+ * Obstacle avoidance height warn enalbe
+ *
+ * HGT low CP_HGT_DIST_EN, warn msg.
+ *
+ * @boolean
+ * @group Mission
+ */
+PARAM_DEFINE_INT32(CP_HGT_WARN, 0);

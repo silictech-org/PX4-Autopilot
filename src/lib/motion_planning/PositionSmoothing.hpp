@@ -82,7 +82,7 @@ public:
 		const Vector3f(&waypoints)[3],
 		const Vector3f &feedforward_velocity,
 		float delta_time,
-		bool force_zero_velocity_setpoint,
+		uint8_t force_zero_velocity_setpoint,
 		PositionSmoothingSetpoints &out_setpoints
 	)
 	{
@@ -106,7 +106,7 @@ public:
 		const Vector3f &waypoint,
 		const Vector3f &feedforward_velocity,
 		float delta_time,
-		bool force_zero_velocity_setpoint,
+		uint8_t force_zero_velocity_setpoint,
 		PositionSmoothingSetpoints &out_setpoints
 	)
 	{
@@ -408,6 +408,9 @@ public:
 		}
 	}
 
+	const Vector3f _generateVelocitySetpoint(const Vector3f &position, const Vector3f(&waypoints)[3],
+			bool is_single_waypoint,
+			const Vector3f &feedforward_velocity_setpoint);
 
 private:
 	/* params, only modified from external */
@@ -431,13 +434,10 @@ private:
 		bool is_single_waypoint,
 		const Vector3f &feedforward_velocity,
 		float delta_time,
-		bool force_zero_velocity_setpoint,
+		uint8_t force_zero_velocity_setpoint,
 		PositionSmoothingSetpoints &out_setpoints
 	);
 
-	const Vector3f _generateVelocitySetpoint(const Vector3f &position, const Vector3f(&waypoints)[3],
-			bool is_single_waypoint,
-			const Vector3f &feedforward_velocity_setpoint);
 	const Vector3f _getL1Point(const Vector3f &position, const Vector3f(&waypoints)[3]) const;
 	const Vector3f _getCrossingPoint(const Vector3f &position, const Vector3f(&waypoints)[3]) const;
 	float _getMaxXYSpeed(const Vector3f(&waypoints)[3]) const;

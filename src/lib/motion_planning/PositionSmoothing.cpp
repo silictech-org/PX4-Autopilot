@@ -42,7 +42,7 @@ void PositionSmoothing::_generateSetpoints(
 	bool is_single_waypoint,
 	const Vector3f &feedforward_velocity,
 	float delta_time,
-	bool force_zero_velocity_setpoint,
+	uint8_t force_zero_velocity_setpoint,
 	PositionSmoothingSetpoints &out_setpoints)
 {
 	Vector3f velocity_setpoint{0.f, 0.f, 0.f};

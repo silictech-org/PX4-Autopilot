@@ -59,6 +59,9 @@
 
 #include <matrix/matrix/math.hpp>
 
+#include <uORB/topics/mmc_obstacle.h>
+#include <uORB/topics/obstacle_trigger.h>
+
 const vehicle_trajectory_waypoint_s empty_trajectory_waypoint = {0, 0, {0, 0, 0, 0, 0, 0, 0},
 	{	{0, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {NAN, NAN, NAN}, NAN, NAN, false, UINT8_MAX, {0, 0}},
 		{0, {NAN, NAN, NAN}, {NAN, NAN, NAN}, {NAN, NAN, NAN}, NAN, NAN, false, UINT8_MAX, {0, 0}},
@@ -119,6 +122,7 @@ protected:
 	uORB::SubscriptionData<vehicle_trajectory_bezier_s> _sub_vehicle_trajectory_bezier{ORB_ID(vehicle_trajectory_bezier)}; /**< vehicle trajectory waypoint subscription */
 	uORB::SubscriptionData<vehicle_trajectory_waypoint_s> _sub_vehicle_trajectory_waypoint{ORB_ID(vehicle_trajectory_waypoint)}; /**< vehicle trajectory waypoint subscription */
 	uORB::SubscriptionData<vehicle_status_s> _sub_vehicle_status{ORB_ID(vehicle_status)}; /**< vehicle status subscription */
+	uORB::SubscriptionData<mmc_obstacle_s> _sub_mmc_obstacle{ORB_ID::mmc_obstacle};
 
 	vehicle_trajectory_waypoint_s _desired_waypoint{};  /**< desired vehicle trajectory waypoint to be sent to OA */
 

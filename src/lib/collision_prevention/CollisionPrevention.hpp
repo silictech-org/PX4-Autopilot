@@ -58,6 +58,8 @@
 #include <uORB/topics/obstacle_distance.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/obstacle_trigger.h>
+#include <uORB/topics/mmc_obstacle.h>
 
 using namespace time_literals;
 
@@ -72,6 +74,8 @@ public:
 	 */
 	bool is_active();
 
+	bool sensor_offline();
+
 	/**
 	 * Computes collision free setpoints
 	 * @param original_setpoint, setpoint before collision prevention intervention
@@ -81,6 +85,8 @@ public:
 	 */
 	void modifySetpoint(matrix::Vector2f &original_setpoint, const float max_speed,
 			    const matrix::Vector2f &curr_pos, const matrix::Vector2f &curr_vel);
+
+	bool _missionBrakedSuddenly(matrix::Vector2f &setpoint, uint8_t nav_state);
 
 protected:
 
@@ -97,6 +103,8 @@ protected:
 	 * @param obstacle, obstacle_distance message to be updated
 	 */
 	void _addObstacleSensorData(const obstacle_distance_s &obstacle, const matrix::Quatf &vehicle_attitude);
+
+	void _add_mmc_obstacle(const mmc_obstacle_s &mmc_obstacle);
 
 	/**
 	 * Computes an adaption to the setpoint direction to guide towards free space
@@ -124,16 +132,20 @@ private:
 
 	bool _interfering{false};		/**< states if the collision prevention interferes with the user input */
 	bool _was_active{false};		/**< states if the collision prevention interferes with the user input */
+	bool _sensor_offline{false};
 
 	orb_advert_t _mavlink_log_pub{nullptr};	 	/**< Mavlink log uORB handle */
 
 	uORB::Publication<collision_constraints_s>	_constraints_pub{ORB_ID(collision_constraints)};		/**< constraints publication */
 	uORB::Publication<obstacle_distance_s>		_obstacle_distance_pub{ORB_ID(obstacle_distance_fused)};	/**< obstacle_distance publication */
 	uORB::Publication<vehicle_command_s>	_vehicle_command_pub{ORB_ID(vehicle_command)};			/**< vehicle command do publication */
+	uORB::Publication<obstacle_trigger_s> _ob_debug_pub{ORB_ID(obstacle_trigger)}; /**< vehicle command do publication */
+
 
 	uORB::SubscriptionData<obstacle_distance_s> _sub_obstacle_distance{ORB_ID(obstacle_distance)}; /**< obstacle distances received form a range sensor */
 	uORB::SubscriptionData<vehicle_attitude_s> _sub_vehicle_attitude{ORB_ID(vehicle_attitude)};
 	uORB::SubscriptionMultiArray<distance_sensor_s> _distance_sensor_subs{ORB_ID::distance_sensor};
+	uORB::SubscriptionData<mmc_obstacle_s> _sub_mmc_obstacle{ORB_ID::mmc_obstacle};
 
 	static constexpr uint64_t RANGE_STREAM_TIMEOUT_US{500_ms};
 	static constexpr uint64_t TIMEOUT_HOLD_US{5_s};
@@ -148,7 +160,9 @@ private:
 		(ParamBool<px4::params::CP_GO_NO_DATA>) _param_cp_go_nodata, /**< movement allowed where no data*/
 		(ParamFloat<px4::params::MPC_XY_P>) _param_mpc_xy_p, /**< p gain from position controller*/
 		(ParamFloat<px4::params::MPC_JERK_MAX>) _param_mpc_jerk_max, /**< vehicle maximum jerk*/
-		(ParamFloat<px4::params::MPC_ACC_HOR>) _param_mpc_acc_hor /**< vehicle maximum horizontal acceleration*/
+		(ParamFloat<px4::params::MPC_ACC_HOR>) _param_mpc_acc_hor, /**< vehicle maximum horizontal acceleration*/
+		(ParamFloat<px4::params::CP_MAX_DIST>)_param_cp_max_dist,
+		(ParamBool<px4::params::CP_FAIL_LOITER>)_param_cp_fail_loiter
 	)
 
 	/**
@@ -190,4 +204,5 @@ private:
 	 */
 	void _publishVehicleCmdDoLoiter();
 
+	void _mmc_updateObstacleMap();
 };

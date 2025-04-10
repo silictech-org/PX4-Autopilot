@@ -44,6 +44,7 @@
 #include <matrix/math.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/takeoff_status.h>
+#include <lib/collision_prevention/CollisionPrevention.hpp>
 
 #include "SlewRate.hpp"
 
@@ -58,13 +59,14 @@ public:
 	void resetVelocity(const matrix::Vector2f &velocity);
 	void resetAcceleration(const matrix::Vector2f &acceleration);
 	void generateSetpoints(matrix::Vector2f stick_xy, const float yaw, const float yaw_sp, const matrix::Vector3f &pos,
-			       const matrix::Vector2f &vel_sp_feedback, const float dt);
+			       const matrix::Vector2f &vel_sp_feedback, const float dt, const matrix::Vector3f &curr_vel);
 	void getSetpoints(matrix::Vector3f &pos_sp, matrix::Vector3f &vel_sp, matrix::Vector3f &acc_sp);
 	float getMaxAcceleration() { return _param_mpc_acc_hor.get(); };
 	float getMaxJerk() { return _param_mpc_jerk_max.get(); };
 	void setVelocityConstraint(float vel) { _velocity_constraint = fmaxf(vel, FLT_EPSILON); };
 
 private:
+	orb_advert_t _mavlink_log_pub{nullptr}; /**< Mavlink log uORB handle */
 	void applyJerkLimit(const float dt);
 	matrix::Vector2f calculateDrag(matrix::Vector2f drag_coefficient, const float dt, const matrix::Vector2f &stick_xy,
 				       const matrix::Vector2f &vel_sp);
@@ -83,12 +85,19 @@ private:
 	matrix::Vector2f _acceleration_setpoint_prev;
 
 	float _velocity_constraint{INFINITY};
+	float _velocity_scale{};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MPC_VEL_MANUAL>) _param_mpc_vel_manual,
 		(ParamFloat<px4::params::MPC_VEL_MAN_SIDE>) _param_mpc_vel_man_side,
 		(ParamFloat<px4::params::MPC_VEL_MAN_BACK>) _param_mpc_vel_man_back,
 		(ParamFloat<px4::params::MPC_ACC_HOR>) _param_mpc_acc_hor,
-		(ParamFloat<px4::params::MPC_JERK_MAX>) _param_mpc_jerk_max
+		(ParamFloat<px4::params::MPC_JERK_MAX>) _param_mpc_jerk_max,
+		(ParamFloat<px4::params::CP_DIST>) _param_cp_dist,
+		(ParamFloat<px4::params::MPC_VEL_OB>)_param_mpc_vel_ob,
+		(ParamFloat<px4::params::CP_HGT_DIST_EN>)_param_cp_hgt_dist_en,
+		(ParamInt<px4::params::CP_HGT_WARN>)_param_cp_hgt_warn
 	)
+
+	CollisionPrevention _collision_prevention{this};
 };

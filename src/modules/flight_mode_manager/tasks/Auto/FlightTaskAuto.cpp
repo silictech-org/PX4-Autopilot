@@ -172,8 +172,21 @@ bool FlightTaskAuto::update()
 
 	const bool should_wait_for_yaw_align = _param_mpc_yaw_mode.get() == int32_t(yaw_mode::towards_waypoint_yaw_first)
 					       && !_yaw_sp_aligned;
-	const bool force_zero_velocity_setpoint = should_wait_for_yaw_align || _is_emergency_braking_active;
+	uint8_t force_zero_velocity_setpoint = should_wait_for_yaw_align || _is_emergency_braking_active;
 	_updateTrajConstraints();
+
+	if ((_param_cp_dist.get() > 0) && (_param_cp_hgt_dist_en.get() < -_position(2))) {
+		_sub_vehicle_status.update();
+		uint8_t nav_mode = _sub_vehicle_status.get().nav_state;
+		vel_sp_xyz = _position_smoothing._generateVelocitySetpoint(_position, waypoints, false, _velocity_setpoint);
+		Vector2f vel_sp_xy = vel_sp_xyz.xy();
+		bool ob_trig = _collision_prevention._missionBrakedSuddenly(vel_sp_xy, nav_mode);
+
+		if (ob_trig) {
+			force_zero_velocity_setpoint |= 0x10 ;
+		}
+	}
+
 	PositionSmoothing::PositionSmoothingSetpoints smoothed_setpoints;
 	_position_smoothing.generateSetpoints(
 		_position,
@@ -301,7 +314,7 @@ void FlightTaskAuto::_prepareLandSetpoints()
 
 		_stick_acceleration_xy.setVelocityConstraint(max_speed);
 		_stick_acceleration_xy.generateSetpoints(sticks_xy, _yaw, _land_heading, _position,
-				_velocity_setpoint_feedback.xy(), _deltatime);
+				_velocity_setpoint_feedback.xy(), _deltatime, _velocity);
 		_stick_acceleration_xy.getSetpoints(_land_position, _velocity_setpoint, _acceleration_setpoint);
 
 	} else {

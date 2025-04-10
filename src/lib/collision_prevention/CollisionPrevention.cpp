@@ -382,12 +382,162 @@ CollisionPrevention::_sensorOrientationToYawOffset(const distance_sensor_s &dist
 
 	return offset;
 }
+bool CollisionPrevention::_missionBrakedSuddenly(Vector2f &setpoint, uint8_t nav_state)
+{
+	bool trig_ob_flg = false;
+	obstacle_trigger_s _ob_debug{};
+	_updateObstacleMap();
+	_mmc_updateObstacleMap();
 
-void
-CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vector2f &curr_pos,
+	const float col_prev_d = _param_cp_dist.get() + 3.0f;
+	const matrix::Quatf attitude = Quatf(_sub_vehicle_attitude.get().q);
+	const float vehicle_yaw_angle_rad = Eulerf(attitude).psi();
+
+	const hrt_abstime constrain_time = getTime();
+	// static uint16_t trig_flg = 0;
+	const float setpoint_length = setpoint.norm();
+	int num_fov_bins = 0;
+
+	_ob_debug.timestamp = getTime();
+	_ob_debug.yaw_angle_rad = vehicle_yaw_angle_rad;
+	_ob_debug.cp_dist = col_prev_d;
+	setpoint.copyTo(_ob_debug.or_vel_sp);
+
+	static uint64_t cnt_time = 0;
+
+	static float fit = 0.0f;
+	// bool trig_flg = false;
+
+	static float distance = 0;
+
+	if ((constrain_time - _obstacle_map_body_frame.timestamp) < RANGE_STREAM_TIMEOUT_US) {
+		_sensor_offline = false;
+
+		if (setpoint_length > 0.000001f) {
+
+			Vector2f setpoint_dir = setpoint / setpoint_length;
+			float vel_max = setpoint_length;
+
+			const float min_dist_to_keep = math::max(_obstacle_map_body_frame.min_distance / 100.0f,
+						       col_prev_d);
+
+			for (int i = 0; i < INTERNAL_MAP_USED_BINS; i++) {
+				// delete stale values
+				const hrt_abstime data_age = constrain_time - _data_timestamps[i];
+
+				if (data_age > RANGE_STREAM_TIMEOUT_US) {
+					_obstacle_map_body_frame.distances[i] = UINT16_MAX;
+				}
+
+				distance = _obstacle_map_body_frame.distances[i] * 0.01f;  // convert to meters
+
+				float angle = math::radians((float)i * INTERNAL_MAP_INCREMENT_DEG);
+
+				// convert from body to local frame in the range [0, 2*pi]
+				// angle = wrap_2pi(wrap_2pi(vehicle_yaw_angle_rad) + angle);
+				angle = wrap_2pi(vehicle_yaw_angle_rad + angle);
+
+				_ob_debug.angle_local = angle;
+
+				// get direction of current bin
+				const Vector2f bin_direction = {cosf(angle), sinf(angle)};
+
+				bin_direction.copyTo(_ob_debug.bin_direction);
+
+				// count number of bins in the field of valid_new
+				if (_obstacle_map_body_frame.distances[i] < UINT16_MAX) {
+					num_fov_bins++;
+				}
+
+				if (_obstacle_map_body_frame.distances[i] > _obstacle_map_body_frame.min_distance &&
+				    _obstacle_map_body_frame.distances[i] < UINT16_MAX) {
+
+					const float direction_fit = setpoint_dir.dot(bin_direction);
+
+					if (nav_state == 3 || nav_state == 5) {
+						fit = 0.0;	// mission and rtl
+
+					} else {
+						fit = 0.7;	//pos and loiter
+					}
+
+					if (hrt_absolute_time() - cnt_time < 3 * 1000 * 1000) {
+						vel_max = 0;
+						setpoint = setpoint_dir * vel_max;
+						setpoint(0) = 0;
+						setpoint(1) = 0;
+						trig_ob_flg = true;
+						_ob_debug.trig_flg = 1;
+
+						if (distance < min_dist_to_keep && direction_fit > fit) {
+							cnt_time = hrt_absolute_time();
+						}
+
+					} else if (distance < min_dist_to_keep) {
+						if (direction_fit > fit) {
+							{
+								_ob_debug.trig_i = i;
+
+								vel_max = 0;
+								setpoint = setpoint_dir * vel_max;
+								setpoint(0) = 0;
+								setpoint(1) = 0;
+
+								mavlink_log_critical(&_mavlink_log_pub,
+										     "obstacle direction %d "
+										     ",request manual control",
+										     i * 10 + 5);
+
+								_ob_debug.trig_flg = 1;
+								trig_ob_flg = true;
+
+								cnt_time = hrt_absolute_time();
+							}
+						}
+					}
+
+					_ob_debug_pub.publish(_ob_debug);
+				}
+			}
+
+			setpoint = setpoint_dir * vel_max;
+		}
+
+	} else {
+		_sensor_offline = true;
+
+		if (_param_cp_fail_loiter.get()) {
+			// allow no movement
+			float vel_max = 0.f;
+			setpoint = setpoint * vel_max;
+		}
+
+		// if distance data is stale, switch to Loiter
+		if (getElapsedTime(&_last_timeout_warning) > 1_s && getElapsedTime(&_time_activated) > 1_s) {
+
+			if ((constrain_time - _obstacle_map_body_frame.timestamp) > TIMEOUT_HOLD_US &&
+			    getElapsedTime(&_time_activated) > TIMEOUT_HOLD_US) {
+
+				if (_param_cp_fail_loiter.get()) {
+					mavlink_log_critical(&_mavlink_log_pub, "Lidar OffLine, Auto Switch Loiter");
+					_publishVehicleCmdDoLoiter();
+
+				} else {
+					mavlink_log_critical(&_mavlink_log_pub, "Lidar OffLine, Careful flying !!");
+				}
+			}
+
+			_last_timeout_warning = getTime();
+		}
+	}
+
+	return trig_ob_flg;
+}
+void CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vector2f &curr_pos,
 		const Vector2f &curr_vel)
 {
 	_updateObstacleMap();
+	_mmc_updateObstacleMap();
 
 	// read parameters
 	const float col_prev_d = _param_cp_dist.get();
@@ -403,6 +553,12 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 
 	const hrt_abstime constrain_time = getTime();
 	int num_fov_bins = 0;
+
+	obstacle_trigger_s _ob_debug{};
+
+	_ob_debug.timestamp = getTime();
+	_ob_debug.yaw_angle_rad = vehicle_yaw_angle_rad;
+	_ob_debug.cp_dist = col_prev_d;
 
 	if ((constrain_time - _obstacle_map_body_frame.timestamp) < RANGE_STREAM_TIMEOUT_US) {
 		if (setpoint_length > 0.001f) {
@@ -447,7 +603,7 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 				if (_obstacle_map_body_frame.distances[i] > _obstacle_map_body_frame.min_distance
 				    && _obstacle_map_body_frame.distances[i] < UINT16_MAX) {
 
-					if (setpoint_dir.dot(bin_direction) > 0) {
+					if (setpoint_dir.dot(bin_direction) > 0.7f) {
 						// calculate max allowed velocity with a P-controller (same gain as in the position controller)
 						const float curr_vel_parallel = math::max(0.f, curr_vel.dot(bin_direction));
 						float delay_distance = curr_vel_parallel * col_prev_dly;
@@ -471,13 +627,20 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 						if (vel_max_bin >= 0) {
 							vel_max = math::min(vel_max, vel_max_bin);
 						}
+						if (vel_max < 0.000001f) {
+							_ob_debug.trig_flg = 1;
+							_ob_debug.trig_i = i;
+						}
 					}
 
 				} else if (_obstacle_map_body_frame.distances[i] == UINT16_MAX && i == sp_index) {
 					if (!move_no_data || (move_no_data && _data_fov[i])) {
 						vel_max = 0.f;
+						_ob_debug.trig_flg = 1;
 					}
 				}
+
+				_ob_debug_pub.publish(_ob_debug);
 			}
 
 			//if the sensor field of view is zero, never allow to move (even if move_no_data=1)
@@ -489,16 +652,26 @@ CollisionPrevention::_calculateConstrainedSetpoint(Vector2f &setpoint, const Vec
 		}
 
 	} else {
-		//allow no movement
-		float vel_max = 0.f;
-		setpoint = setpoint * vel_max;
+		_sensor_offline = true;
+
+		if (_param_cp_fail_loiter.get()) {
+			// allow no movement
+			float vel_max = 0.f;
+			setpoint = setpoint * vel_max;
+		}
 
 		// if distance data is stale, switch to Loiter
 		if (getElapsedTime(&_last_timeout_warning) > 1_s && getElapsedTime(&_time_activated) > 1_s) {
 
-			if ((constrain_time - _obstacle_map_body_frame.timestamp) > TIMEOUT_HOLD_US
-			    && getElapsedTime(&_time_activated) > TIMEOUT_HOLD_US) {
-				_publishVehicleCmdDoLoiter();
+			if ((constrain_time - _obstacle_map_body_frame.timestamp) > TIMEOUT_HOLD_US &&
+			    getElapsedTime(&_time_activated) > TIMEOUT_HOLD_US) {
+				if (_param_cp_fail_loiter.get()) {
+					mavlink_log_critical(&_mavlink_log_pub, "Lidar OffLine, Auto Switch Loiter");
+					_publishVehicleCmdDoLoiter();
+
+				} else {
+					mavlink_log_critical(&_mavlink_log_pub, "Lidar OffLine, Careful flying !!");
+				}
 			}
 
 			_last_timeout_warning = getTime();
@@ -552,4 +725,87 @@ void CollisionPrevention::_publishVehicleCmdDoLoiter()
 
 	// publish the vehicle command
 	_vehicle_command_pub.publish(command);
+}
+
+bool CollisionPrevention::sensor_offline() { return _sensor_offline; }
+
+void CollisionPrevention::_add_mmc_obstacle(const mmc_obstacle_s &mmc_obstacle)
+{
+	const uint16_t cp_max = (uint16_t)_param_cp_max_dist.get() * 100;
+
+	if (mmc_obstacle.sensor_type != mmc_obstacle_s::LIDAR_FSS20) {
+		return;
+	}
+	float s20_angle_offset = 0.f;
+	int msg_index = 0;
+	_obstacle_map_body_frame.increment = 10.0f;
+
+	static uint16_t limit_max_dist = 3000;  // 30m
+
+	_obstacle_map_body_frame.angle_offset = s20_angle_offset;
+
+	for (int i = 0; i < INTERNAL_MAP_USED_BINS; i++) {
+		msg_index = i;
+
+		if (mmc_obstacle.distance[msg_index] == UINT16_MAX) {
+			_obstacle_map_body_frame.distances[i] = (cp_max > limit_max_dist
+								? cp_max
+								: limit_max_dist);
+
+		} else {
+			_obstacle_map_body_frame.distances[i] = mmc_obstacle.distance[msg_index];
+		}
+
+		_data_timestamps[i] = _obstacle_map_body_frame.timestamp;
+		_data_maxranges[i] = mmc_obstacle.max_distance;
+		_data_fov[i] = 1;
+	}
+}
+
+void CollisionPrevention::_mmc_updateObstacleMap()  // not need pub _obstacle_map_body_frame
+{
+	bool gazebo_debug = true;
+
+	if (_sub_mmc_obstacle.update()) {
+		const mmc_obstacle_s &mmc_obstacle = _sub_mmc_obstacle.get();
+
+		if (getElapsedTime(&mmc_obstacle.timestamp) < RANGE_STREAM_TIMEOUT_US) {
+			_obstacle_map_body_frame.timestamp = math::max(_obstacle_map_body_frame.timestamp,
+							     mmc_obstacle.timestamp);
+			_obstacle_map_body_frame.max_distance = math::max(_obstacle_map_body_frame.max_distance,
+								mmc_obstacle.max_distance);
+			_obstacle_map_body_frame.min_distance = math::min(_obstacle_map_body_frame.min_distance,
+								mmc_obstacle.min_distance);
+			_add_mmc_obstacle(mmc_obstacle);
+		}
+	}
+
+	if (gazebo_debug) {
+		static uint64_t last_time = 0;
+
+		if (hrt_absolute_time() - last_time >= 100 * 1000) {
+			_obstacle_map_body_frame.timestamp = hrt_absolute_time();
+			_obstacle_map_body_frame.max_distance = 3000.0f;
+			_obstacle_map_body_frame.min_distance = 5.0f;
+			_obstacle_map_body_frame.increment = 10.0f;
+			_obstacle_map_body_frame.angle_offset = 0.0f;
+			_obstacle_map_body_frame.frame = obstacle_distance_s::MAV_FRAME_BODY_FRD;
+
+			last_time = _obstacle_map_body_frame.timestamp;
+
+			for (uint8_t i = 0; i < 36; ++i) {
+				_obstacle_map_body_frame.distances[i] = 2000;  // 20m
+				_data_timestamps[i] = _obstacle_map_body_frame.timestamp;
+				_data_maxranges[i] = 2000;
+				_data_fov[i] = 1;
+			}
+
+			_obstacle_map_body_frame.distances[18] = 2000;
+			_obstacle_map_body_frame.distances[0] = 500;
+			_obstacle_map_body_frame.distances[9] = 2000;
+			_obstacle_map_body_frame.distances[27] = 2000;
+
+			_obstacle_distance_pub.publish(_obstacle_map_body_frame);
+		}
+	}
 }

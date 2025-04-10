@@ -39,7 +39,7 @@
 using namespace matrix;
 
 StickAccelerationXY::StickAccelerationXY(ModuleParams *parent) :
-	ModuleParams(parent)
+	ModuleParams(parent), _collision_prevention(this)
 {
 	_brake_boost_filter.reset(1.f);
 	resetPosition();
@@ -71,7 +71,7 @@ void StickAccelerationXY::resetAcceleration(const matrix::Vector2f &acceleration
 }
 
 void StickAccelerationXY::generateSetpoints(Vector2f stick_xy, const float yaw, const float yaw_sp, const Vector3f &pos,
-		const matrix::Vector2f &vel_sp_feedback, const float dt)
+		const matrix::Vector2f &vel_sp_feedback, const float dt, const Vector3f &curr_vel)
 {
 	// maximum commanded velocity can be constrained dynamically
 	const float velocity_sc = fminf(_param_mpc_vel_manual.get(), _velocity_constraint);
@@ -79,8 +79,54 @@ void StickAccelerationXY::generateSetpoints(Vector2f stick_xy, const float yaw, 
 	// maximum commanded acceleration is scaled down with velocity
 	const float acceleration_sc = _param_mpc_acc_hor.get() * (velocity_sc / _param_mpc_vel_manual.get());
 	Vector2f acceleration_scale(acceleration_sc, acceleration_sc);
+	static uint64_t time_warn = 0;
 
 	acceleration_scale *= 2.f; // because of drag the average acceleration is half
+
+	bool obs_en = false;
+	static bool last_obs_en = false;
+
+	if (_collision_prevention.is_active()) {  // vel limit
+
+		velocity_scale(0) = _param_mpc_vel_ob.get();
+		velocity_scale(1) = _param_mpc_vel_ob.get();
+
+		_velocity_scale = velocity_scale(0);
+
+		Vector2f vel_sp_xy = _velocity_scale * stick_xy;
+
+		_collision_prevention.modifySetpoint(vel_sp_xy, _velocity_scale, pos.xy(), curr_vel.xy());
+
+		if ((-pos(2)) > _param_cp_hgt_dist_en.get()) {
+			stick_xy = vel_sp_xy / _velocity_scale;
+			obs_en = true;
+		}
+	}
+
+	if (!_collision_prevention.sensor_offline()) {
+		if (_param_cp_hgt_warn.get()) {
+			if (_collision_prevention.is_active() && (!obs_en) && ((-pos(2) > 0.5f))) {
+				if (hrt_absolute_time() - time_warn > 3000000) {
+					mavlink_log_info(&_mavlink_log_pub, "Below obstacle avoidance enabling height");
+					time_warn = hrt_absolute_time();
+				}
+
+			} else if (obs_en && !last_obs_en) {
+				mavlink_log_info(&_mavlink_log_pub, "Obstacle avoidance mode on");
+			}
+
+		} else {
+			if ((obs_en && !last_obs_en)) {
+				mavlink_log_info(&_mavlink_log_pub, "Obstacle avoidance mode on");
+
+			} else if (!obs_en && last_obs_en) {
+				mavlink_log_info(&_mavlink_log_pub, "Obstacle avoidance mode off");
+			}
+		}
+	}
+
+
+	last_obs_en = obs_en;
 
 	// Map stick input to acceleration
 	Sticks::limitStickUnitLengthXY(stick_xy);
