@@ -246,6 +246,8 @@ void IUavcanSensorBridge::make_all(uavcan::INode &node, List<IUavcanSensorBridge
 #endif
 
 	list.add(new UavcanIrlockBridge(node));
+
+	list.add(new UavcanRadarBridge(node));
 }
 
 /*

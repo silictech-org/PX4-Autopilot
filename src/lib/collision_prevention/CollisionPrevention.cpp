@@ -764,8 +764,6 @@ void CollisionPrevention::_add_mmc_obstacle(const mmc_obstacle_s &mmc_obstacle)
 
 void CollisionPrevention::_mmc_updateObstacleMap()  // not need pub _obstacle_map_body_frame
 {
-	bool gazebo_debug = true;
-
 	if (_sub_mmc_obstacle.update()) {
 		const mmc_obstacle_s &mmc_obstacle = _sub_mmc_obstacle.get();
 
@@ -780,32 +778,4 @@ void CollisionPrevention::_mmc_updateObstacleMap()  // not need pub _obstacle_ma
 		}
 	}
 
-	if (gazebo_debug) {
-		static uint64_t last_time = 0;
-
-		if (hrt_absolute_time() - last_time >= 100 * 1000) {
-			_obstacle_map_body_frame.timestamp = hrt_absolute_time();
-			_obstacle_map_body_frame.max_distance = 3000.0f;
-			_obstacle_map_body_frame.min_distance = 5.0f;
-			_obstacle_map_body_frame.increment = 10.0f;
-			_obstacle_map_body_frame.angle_offset = 0.0f;
-			_obstacle_map_body_frame.frame = obstacle_distance_s::MAV_FRAME_BODY_FRD;
-
-			last_time = _obstacle_map_body_frame.timestamp;
-
-			for (uint8_t i = 0; i < 36; ++i) {
-				_obstacle_map_body_frame.distances[i] = 2000;  // 20m
-				_data_timestamps[i] = _obstacle_map_body_frame.timestamp;
-				_data_maxranges[i] = 2000;
-				_data_fov[i] = 1;
-			}
-
-			_obstacle_map_body_frame.distances[18] = 2000;
-			_obstacle_map_body_frame.distances[0] = 500;
-			_obstacle_map_body_frame.distances[9] = 2000;
-			_obstacle_map_body_frame.distances[27] = 2000;
-
-			_obstacle_distance_pub.publish(_obstacle_map_body_frame);
-		}
-	}
 }
