@@ -69,7 +69,11 @@ void UavcanRadarBridge::Lidar_sub_cb(const uavcan::ReceivedDataStructure<mmc::Li
 	// obstacle.sectors = msg.distance.size();
 	obstacle.sectors = mmc_obstacle_s::NUM_SECTORS_S20;
 
-	for (unsigned i = 0; i < obstacle.sectors; ++i) {
+	for (unsigned i = 0; i < obstacle.sectors; i++) {
+		if ((msg.distance[i] != 0xffff) && (msg.distance[i] > 8000)) {
+			return;
+		}
+
 		if (msg.distance[i] <= body_dist) {
 			// obstacle.distance[i] = msg.max_distance;
 			obstacle.distance[i] = 0x0000;

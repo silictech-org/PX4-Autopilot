@@ -150,6 +150,8 @@ void LoggedTopics::add_default_topics()
 	add_topic("landing_target_pose", 200);
 	add_topic("precland", 200);
 	add_topic("distance_sensor_raw");
+	add_topic("obstacle_trigger", 100);
+	add_topic("mmc_obstacle", 100);
 
 	// multi topics
 	add_optional_topic_multi("actuator_outputs", 100, 3);
