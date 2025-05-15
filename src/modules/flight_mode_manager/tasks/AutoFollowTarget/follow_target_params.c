@@ -117,3 +117,12 @@ PARAM_DEFINE_INT32(FLW_TGT_ALT_M, 0);
  * @group Follow target
  */
 PARAM_DEFINE_FLOAT(FLW_TGT_MAX_VEL, 5.0f);
+
+/**
+ * Surround mode
+ *
+ * @value 0 Surround off
+ * @value 1 Surround on
+ * @group Follow target
+ */
+PARAM_DEFINE_INT32(FLW_RING_MD, 0);

@@ -237,8 +237,10 @@ Vector3f FlightTaskAutoFollowTarget::calculateDesiredDronePosition(const Vector3
 	Vector3f drone_desired_position{NAN, NAN, NAN};
 
 	// Offset from the Target
-	const Vector2f offset_vector = Vector2f(cosf(orbit_angle_setpoint), sinf(orbit_angle_setpoint)) * _follow_distance;
-
+	Vector2f offset_vector = Vector2f(cosf(orbit_angle_setpoint), sinf(orbit_angle_setpoint)) * _follow_distance;
+	if (_param_flw_ring_mode.get() == 0) {
+		offset_vector = Vector2f(0.f, 0.f);
+	}
 	drone_desired_position.xy() = Vector2f(target_position.xy()) + offset_vector;
 
 	// Calculate ground's z value in local frame for terrain tracking mode.
@@ -324,7 +326,9 @@ bool FlightTaskAutoFollowTarget::update()
 
 		if (_sticks.isAvailable()) {
 			updateRcAdjustedFollowHeight(_sticks);
-			updateRcAdjustedFollowDistance(_sticks, drone_to_target_vector);
+			if (_param_flw_ring_mode.get()) {
+				updateRcAdjustedFollowDistance(_sticks, drone_to_target_vector);
+			}
 			updateRcAdjustedFollowAngle(_sticks, measured_orbit_angle, _orbit_angle_setpoint_rad);
 		}
 
@@ -361,9 +365,12 @@ bool FlightTaskAutoFollowTarget::update()
 			if (fabsf(drone_desired_position(2) - _position(2)) < ALT_ACCEPTANCE_THRESHOLD) {
 				// Drone is close enough to the altitude target : Apply Horizontal + Velocity Control
 				_position_setpoint = drone_desired_position;
-				_velocity_setpoint.xy() = orbit_tangential_velocity + target_velocity_filtered.xy();
-				_acceleration_setpoint.xy() = orbit_total_accel;
-
+				if(_param_flw_ring_mode.get()) {
+					_velocity_setpoint.xy() = orbit_tangential_velocity + target_velocity_filtered.xy();
+					_acceleration_setpoint.xy() = orbit_total_accel;
+				} else {
+					_velocity_setpoint.xy() = target_velocity_filtered.xy();
+				}
 			} else {
 				// Drone hasn't achieved desired altitude yet : Only apply Vertical Control
 				_position_setpoint = _position;
